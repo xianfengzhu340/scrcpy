@@ -3,3 +3,10 @@ build/
 .idea/
 .gradle/
 /x/
+*.DS_Store
+.project
+.settings/
+server/.classpath
+server/.settings/
+x/
+.vscode/

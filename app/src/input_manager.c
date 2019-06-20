@@ -13,6 +13,7 @@ static const int ACTION_UP = 1 << 1;
 static void
 send_keycode(struct controller *controller, enum android_keycode keycode,
              int actions, const char *name) {
+    // LOGW("send_keycode: %s", name);
     // send DOWN event
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_INJECT_KEYCODE;
@@ -21,6 +22,7 @@ send_keycode(struct controller *controller, enum android_keycode keycode,
 
     if (actions & ACTION_DOWN) {
         msg.inject_keycode.action = AKEY_EVENT_ACTION_DOWN;
+        // LOGW("send ACTION_DOWN");
         if (!controller_push_msg(controller, &msg)) {
             LOGW("Could not request 'inject %s (DOWN)'", name);
             return;
@@ -28,6 +30,7 @@ send_keycode(struct controller *controller, enum android_keycode keycode,
     }
 
     if (actions & ACTION_UP) {
+        // LOGW("send ACTION_UP");
         msg.inject_keycode.action = AKEY_EVENT_ACTION_UP;
         if (!controller_push_msg(controller, &msg)) {
             LOGW("Could not request 'inject %s (UP)'", name);
@@ -42,6 +45,7 @@ action_home(struct controller *controller, int actions) {
 
 static inline void
 action_back(struct controller *controller, int actions) {
+    // LOGW("action_back: actions=%d", actions);
     send_keycode(controller, AKEYCODE_BACK, actions, "BACK");
 }
 
@@ -262,6 +266,7 @@ input_manager_process_key(struct input_manager *im,
     bool ctrl = event->keysym.mod & (KMOD_LCTRL | KMOD_RCTRL);
     bool alt = event->keysym.mod & (KMOD_LALT | KMOD_RALT);
     bool meta = event->keysym.mod & (KMOD_LGUI | KMOD_RGUI);
+    // LOGW("input_manager_process_key: control: %d, is ctrl: %d, is meta: %d, is alt: %d", (control?1:0), (ctrl?1:0), (meta?1:0), (alt?1:0));
 
     // use Cmd on macOS, Ctrl on other platforms
 #ifdef __APPLE__
@@ -297,14 +302,27 @@ input_manager_process_key(struct input_manager *im,
                     action_home(controller, action);
                 }
                 return;
+            case SDLK_d:
+                if (control && !ctrl && meta && !shift && !repeat) {
+                    action_home(controller, action);
+                }
+                return;
             case SDLK_b: // fall-through
             case SDLK_BACKSPACE:
                 if (control && cmd && !shift && !repeat) {
+                    action_back(controller, action);
+                }else
+                if (control && !ctrl && meta && !shift && !repeat) {
                     action_back(controller, action);
                 }
                 return;
             case SDLK_s:
                 if (control && cmd && !shift && !repeat) {
+                    action_app_switch(controller, action);
+                }
+                return;
+            case SDLK_r:
+                if (control && !ctrl && meta && !shift && !repeat) {
                     action_app_switch(controller, action);
                 }
                 return;
@@ -352,11 +370,15 @@ input_manager_process_key(struct input_manager *im,
                 return;
             case SDLK_c:
                 if (control && cmd && !shift && !repeat && down) {
+                // if (control && ctrl && !meta && !shift && !repeat && down) {
+                // if (control && !ctrl && meta && !shift && !repeat && down) {
                     request_device_clipboard(controller);
                 }
                 return;
             case SDLK_v:
                 if (control && cmd && !repeat && down) {
+                // if (control && ctrl && !meta && !repeat && down) {
+                // if (control && !ctrl && meta && !repeat && down) {
                     if (shift) {
                         // store the text in the device clipboard and paste
                         set_device_clipboard(controller, true);
@@ -405,6 +427,23 @@ input_manager_process_key(struct input_manager *im,
         }
 
         return;
+    } else {
+        SDL_Keycode keycode = event->keysym.sym;
+        bool down = event->type == SDL_KEYDOWN;
+        int action = down ? ACTION_DOWN : ACTION_UP;
+        bool repeat = event->repeat;
+        bool shift = event->keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT);
+        if(keycode == SDLK_ESCAPE) {
+            // LOGW("keycode is SDLK_ESCAPE");
+            if (control 
+                && !ctrl 
+                && !meta 
+                && !shift 
+                && !repeat) {
+                action_back(controller, action);
+            }
+            return;
+        }
     }
 
     if (!control) {

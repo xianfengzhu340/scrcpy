@@ -6,6 +6,9 @@ import android.content.ClipData;
 import android.content.IOnPrimaryClipChangedListener;
 import android.os.Build;
 import android.os.IInterface;
+import android.util.Log;
+
+import com.genymobile.scrcpy.Ln;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -59,11 +62,14 @@ public class ClipboardManager {
     }
 
     public CharSequence getText() {
+        if (!available()) {
+            return null;
+        }
         try {
             Method method = getGetPrimaryClipMethod();
             ClipData clipData = getPrimaryClip(method, manager);
             if (clipData == null || clipData.getItemCount() == 0) {
-                return null;
+                return "";
             }
             return clipData.getItemAt(0).getText();
         } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
