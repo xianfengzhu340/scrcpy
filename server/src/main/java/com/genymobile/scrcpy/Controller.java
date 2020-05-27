@@ -215,9 +215,24 @@ public class Controller {
         MotionEvent.PointerCoords coords = pointerCoords[0];
         coords.x = point.getX();
         coords.y = point.getY();
+        // Ln.d("coords: " + coords.x + ":" + coords.y + ", " + hScroll + ":" + vScroll);
         coords.setAxisValue(MotionEvent.AXIS_HSCROLL, hScroll);
         coords.setAxisValue(MotionEvent.AXIS_VSCROLL, vScroll);
 
+// public static MotionEvent obtain (long downTime, 
+//                 long eventTime, 
+//                 int action, 
+//                 int pointerCount, 
+//                 PointerProperties[] pointerProperties, 
+//                 PointerCoords[] pointerCoords, 
+//                 int metaState, 
+//                 int buttonState, 
+//                 float xPrecision, 
+//                 float yPrecision, 
+//                 int deviceId, 
+//                 int edgeFlags, 
+//                 int source, 
+//                 int flags)
         MotionEvent event = MotionEvent
                 .obtain(lastTouchDown, now, MotionEvent.ACTION_SCROLL, 1, pointerProperties, pointerCoords, 0, 0, 1f, 1f, DEVICE_ID_VIRTUAL, 0,
                         InputDevice.SOURCE_TOUCHSCREEN, 0);

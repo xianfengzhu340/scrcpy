@@ -62,9 +62,9 @@ public class ClipboardManager {
     }
 
     public CharSequence getText() {
-        if (!available()) {
-            return null;
-        }
+        // if (!available()) {
+        //     return null;
+        // }
         try {
             Method method = getGetPrimaryClipMethod();
             ClipData clipData = getPrimaryClip(method, manager);

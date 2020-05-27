@@ -33,7 +33,8 @@ public final class Ln {
     }
 
     public static boolean isEnabled(Level level) {
-        return level.ordinal() >= threshold.ordinal();
+        // return level.ordinal() >= THRESHOLD.ordinal();
+        return true;
     }
 
     public static void d(String message) {
