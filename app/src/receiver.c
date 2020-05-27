@@ -26,7 +26,7 @@ static void
 process_msg(struct device_msg *msg) {
     switch (msg->type) {
         case DEVICE_MSG_TYPE_CLIPBOARD:
-            LOGI("Device clipboard copied");
+            LOGI("Device clipboard copied: %s", msg->clipboard.text);
             SDL_SetClipboardText(msg->clipboard.text);
             break;
     }

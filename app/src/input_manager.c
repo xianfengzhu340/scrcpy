@@ -419,11 +419,11 @@ input_manager_process_key(struct input_manager *im,
                     }
                 }
                 return;
-            case SDLK_r:
-                if (control && cmd && !shift && !repeat && down) {
-                    rotate_device(controller);
-                }
-                return;
+            // case SDLK_r:
+            //     if (control && cmd && !shift && !repeat && down) {
+            //         rotate_device(controller);
+            //     }
+            //     return;
         }
 
         return;
