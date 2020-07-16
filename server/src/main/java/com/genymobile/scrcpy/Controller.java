@@ -150,6 +150,7 @@ public class Controller {
     }
 
     private int injectText(String text) {
+        Ln.d("injectText: " + text);
         int successCount = 0;
         for (char c : text.toCharArray()) {
             if (!injectChar(c)) {
