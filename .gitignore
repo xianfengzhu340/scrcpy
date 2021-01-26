@@ -1,5 +1,8 @@
 build/
 /dist/
+/build-*/
+/build_*/
+/release-*/
 .idea/
 .gradle/
 /x/
@@ -10,3 +13,4 @@ server/.classpath
 server/.settings/
 x/
 .vscode/
+local.properties
