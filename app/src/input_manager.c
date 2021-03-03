@@ -549,6 +549,11 @@ input_manager_process_key(struct input_manager *im,
         return;
     }
 
+    if (!ctrl && !shift && !repeat && keycode == SDLK_ESCAPE) {
+        action_back(controller, down ? ACTION_DOWN : ACTION_UP);
+        return;
+    }
+
     if (event->repeat) {
         if (!im->forward_key_repeat) {
             return;
