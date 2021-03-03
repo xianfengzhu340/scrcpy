@@ -64,7 +64,7 @@ sudo apt install gcc git pkg-config meson ninja-build \
                  libsdl2-dev
 
 # server build dependencies
-sudo apt install openjdk-8-jdk
+sudo apt install openjdk-11-jdk
 ```
 
 On old versions (like Ubuntu 16.04), `meson` is too old. In that case, install
@@ -106,13 +106,13 @@ sudo apt install mingw-w64 mingw-w64-tools
 You also need the JDK to build the server:
 
 ```bash
-sudo apt install openjdk-8-jdk
+sudo apt install openjdk-11-jdk
 ```
 
 Then generate the releases:
 
 ```bash
-make -f Makefile.CrossWindows
+./release.sh
 ```
 
 It will generate win32 and win64 releases into `dist/`.
