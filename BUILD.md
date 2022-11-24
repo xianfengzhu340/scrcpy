@@ -14,7 +14,8 @@ First, you need to install the required packages:
 # for Debian/Ubuntu
 sudo apt install ffmpeg libsdl2-2.0-0 adb wget \
                  gcc git pkg-config meson ninja-build libsdl2-dev \
-                 libavcodec-dev libavdevice-dev libavformat-dev libavutil-dev
+                 libavcodec-dev libavdevice-dev libavformat-dev libavutil-dev \
+                 libusb-1.0-0 libusb-1.0-0-dev
 ```
 
 Then clone the repo and execute the installation script
@@ -45,7 +46,7 @@ sudo ninja -Cbuild-auto uninstall
 ### `master`
 
 The `master` branch concerns the latest release, and is the home page of the
-project on Github.
+project on GitHub.
 
 
 ### `dev`
@@ -88,11 +89,12 @@ Install the required packages from your package manager.
 
 ```bash
 # runtime dependencies
-sudo apt install ffmpeg libsdl2-2.0-0 adb
+sudo apt install ffmpeg libsdl2-2.0-0 adb libusb-1.0-0
 
 # client build dependencies
 sudo apt install gcc git pkg-config meson ninja-build libsdl2-dev \
-                 libavcodec-dev libavdevice-dev libavformat-dev libavutil-dev
+                 libavcodec-dev libavdevice-dev libavformat-dev libavutil-dev \
+                 libusb-1.0-0-dev
 
 # server build dependencies
 sudo apt install openjdk-11-jdk
@@ -114,7 +116,7 @@ pip3 install meson
 sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 
 # client build dependencies
-sudo dnf install SDL2-devel ffms2-devel meson gcc make
+sudo dnf install SDL2-devel ffms2-devel libusb-devel meson gcc make
 
 # server build dependencies
 sudo dnf install java-devel
@@ -159,7 +161,8 @@ install the required packages:
 ```bash
 # runtime dependencies
 pacman -S mingw-w64-x86_64-SDL2 \
-          mingw-w64-x86_64-ffmpeg
+          mingw-w64-x86_64-ffmpeg \
+          mingw-w64-x86_64-libusb
 
 # client build dependencies
 pacman -S mingw-w64-x86_64-make \
@@ -173,7 +176,8 @@ For a 32 bits version, replace `x86_64` by `i686`:
 ```bash
 # runtime dependencies
 pacman -S mingw-w64-i686-SDL2 \
-          mingw-w64-i686-ffmpeg
+          mingw-w64-i686-ffmpeg \
+          mingw-w64-i686-libusb
 
 # client build dependencies
 pacman -S mingw-w64-i686-make \
@@ -197,7 +201,7 @@ Install the packages with [Homebrew]:
 
 ```bash
 # runtime dependencies
-brew install sdl2 ffmpeg
+brew install sdl2 ffmpeg libusb
 
 # client build dependencies
 brew install pkg-config meson
@@ -256,7 +260,7 @@ set ANDROID_SDK_ROOT=%LOCALAPPDATA%\Android\sdk
 Then, build:
 
 ```bash
-meson x --buildtype release --strip -Db_lto=true
+meson x --buildtype=release --strip -Db_lto=true
 ninja -Cx  # DO NOT RUN AS ROOT
 ```
 
@@ -268,16 +272,16 @@ install` must be run as root)._
 
 #### Option 2: Use prebuilt server
 
- - [`scrcpy-server-v1.18`][direct-scrcpy-server]  
-   _(SHA-256: 641c5c6beda9399dfae72d116f5ff43b5ed1059d871c9ebc3f47610fd33c51a3)_
+ - [`scrcpy-server-v1.24`][direct-scrcpy-server]  
+   <sub>SHA-256: `ae74a81ea79c0dc7250e586627c278c0a9a8c5de46c9fb5c38c167fb1a36f056`</sub>
 
-[direct-scrcpy-server]: https://github.com/Genymobile/scrcpy/releases/download/v1.18/scrcpy-server-v1.18
+[direct-scrcpy-server]: https://github.com/Genymobile/scrcpy/releases/download/v1.24/scrcpy-server-v1.24
 
 Download the prebuilt server somewhere, and specify its path during the Meson
 configuration:
 
 ```bash
-meson x --buildtype release --strip -Db_lto=true \
+meson x --buildtype=release --strip -Db_lto=true \
     -Dprebuilt_server=/path/to/scrcpy-server
 ninja -Cx  # DO NOT RUN AS ROOT
 ```
@@ -301,13 +305,16 @@ After a successful build, you can install _scrcpy_ on the system:
 sudo ninja -Cx install    # without sudo on Windows
 ```
 
-This installs three files:
+This installs several files:
 
- - `/usr/local/bin/scrcpy`
- - `/usr/local/share/scrcpy/scrcpy-server`
- - `/usr/local/share/man/man1/scrcpy.1`
+ - `/usr/local/bin/scrcpy` (main app)
+ - `/usr/local/share/scrcpy/scrcpy-server` (server to push to the device)
+ - `/usr/local/share/man/man1/scrcpy.1` (manpage)
+ - `/usr/local/share/icons/hicolor/256x256/apps/icon.png` (app icon)
+ - `/usr/local/share/zsh/site-functions/_scrcpy` (zsh completion)
+ - `/usr/local/share/bash-completion/completions/scrcpy` (bash completion)
 
-You can then [run](README.md#run) _scrcpy_.
+You can then [run](README.md#run) `scrcpy`.
 
 ### Uninstall
 

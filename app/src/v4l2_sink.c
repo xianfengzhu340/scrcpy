@@ -1,7 +1,9 @@
 #include "v4l2_sink.h"
 
+#include <string.h>
+
 #include "util/log.h"
-#include "util/str_util.h"
+#include "util/str.h"
 
 /** Downcast frame_sink to sc_v4l2_sink */
 #define DOWNCAST(SINK) container_of(SINK, struct sc_v4l2_sink, frame_sink)
@@ -21,7 +23,7 @@ find_muxer(const char *name) {
         oformat = av_oformat_next(oformat);
 #endif
         // until null or containing the requested name
-    } while (oformat && !strlist_contains(oformat->name, ',', name));
+    } while (oformat && !sc_str_list_contains(oformat->name, ',', name));
     return oformat;
 }
 
@@ -31,7 +33,7 @@ write_header(struct sc_v4l2_sink *vs, const AVPacket *packet) {
 
     uint8_t *extradata = av_malloc(packet->size * sizeof(uint8_t));
     if (!extradata) {
-        LOGC("Could not allocate extradata");
+        LOG_OOM();
         return false;
     }
 
@@ -112,7 +114,7 @@ run_v4l2_sink(void *data) {
     for (;;) {
         sc_mutex_lock(&vs->mutex);
 
-        while (!vs->stopped && vs->vb.pending_frame_consumed) {
+        while (!vs->stopped && !vs->has_frame) {
             sc_cond_wait(&vs->cond, &vs->mutex);
         }
 
@@ -121,9 +123,11 @@ run_v4l2_sink(void *data) {
             break;
         }
 
+        vs->has_frame = false;
         sc_mutex_unlock(&vs->mutex);
 
-        video_buffer_consume(&vs->vb, vs->frame);
+        sc_video_buffer_consume(&vs->vb, vs->frame);
+
         bool ok = encode_and_write_frame(vs, vs->frame);
         av_frame_unref(vs->frame);
         if (!ok) {
@@ -137,27 +141,51 @@ run_v4l2_sink(void *data) {
     return 0;
 }
 
+static void
+sc_video_buffer_on_new_frame(struct sc_video_buffer *vb, bool previous_skipped,
+                             void *userdata) {
+    (void) vb;
+    struct sc_v4l2_sink *vs = userdata;
+
+    if (!previous_skipped) {
+        sc_mutex_lock(&vs->mutex);
+        vs->has_frame = true;
+        sc_cond_signal(&vs->cond);
+        sc_mutex_unlock(&vs->mutex);
+    }
+}
+
 static bool
 sc_v4l2_sink_open(struct sc_v4l2_sink *vs) {
-    bool ok = video_buffer_init(&vs->vb);
+    static const struct sc_video_buffer_callbacks cbs = {
+        .on_new_frame = sc_video_buffer_on_new_frame,
+    };
+
+    bool ok = sc_video_buffer_init(&vs->vb, vs->buffering_time, &cbs, vs);
     if (!ok) {
         return false;
     }
 
+    ok = sc_video_buffer_start(&vs->vb);
+    if (!ok) {
+        goto error_video_buffer_destroy;
+    }
+
     ok = sc_mutex_init(&vs->mutex);
     if (!ok) {
-        LOGC("Could not create mutex");
-        goto error_video_buffer_destroy;
+        goto error_video_buffer_stop_and_join;
     }
 
     ok = sc_cond_init(&vs->cond);
     if (!ok) {
-        LOGC("Could not create cond");
         goto error_mutex_destroy;
     }
 
-    // FIXME
-    const AVOutputFormat *format = find_muxer("video4linux2,v4l2");
+    const AVOutputFormat *format = find_muxer("v4l2");
+    if (!format) {
+        // Alternative name
+        format = find_muxer("video4linux2");
+    }
     if (!format) {
         LOGE("Could not find v4l2 muxer");
         goto error_cond_destroy;
@@ -171,7 +199,7 @@ sc_v4l2_sink_open(struct sc_v4l2_sink *vs) {
 
     vs->format_ctx = avformat_alloc_context();
     if (!vs->format_ctx) {
-        LOGE("Could not allocate v4l2 output context");
+        LOG_OOM();
         return false;
     }
 
@@ -183,9 +211,8 @@ sc_v4l2_sink_open(struct sc_v4l2_sink *vs) {
 #ifdef SCRCPY_LAVF_HAS_AVFORMATCONTEXT_URL
     vs->format_ctx->url = strdup(vs->device_name);
     if (!vs->format_ctx->url) {
-        LOGE("Could not strdup v4l2 device name");
+        LOG_OOM();
         goto error_avformat_free_context;
-        return false;
     }
 #else
     strncpy(vs->format_ctx->filename, vs->device_name,
@@ -194,9 +221,8 @@ sc_v4l2_sink_open(struct sc_v4l2_sink *vs) {
 
     AVStream *ostream = avformat_new_stream(vs->format_ctx, encoder);
     if (!ostream) {
-        LOGE("Could not allocate new v4l2 stream");
+        LOG_OOM();
         goto error_avformat_free_context;
-        return false;
     }
 
     ostream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -214,7 +240,7 @@ sc_v4l2_sink_open(struct sc_v4l2_sink *vs) {
 
     vs->encoder_ctx = avcodec_alloc_context3(encoder);
     if (!vs->encoder_ctx) {
-        LOGC("Could not allocate codec context for v4l2");
+        LOG_OOM();
         goto error_avio_close;
     }
 
@@ -231,25 +257,26 @@ sc_v4l2_sink_open(struct sc_v4l2_sink *vs) {
 
     vs->frame = av_frame_alloc();
     if (!vs->frame) {
-        LOGE("Could not create v4l2 frame");
+        LOG_OOM();
         goto error_avcodec_close;
     }
 
     vs->packet = av_packet_alloc();
     if (!vs->packet) {
-        LOGE("Could not allocate packet");
+        LOG_OOM();
         goto error_av_frame_free;
     }
 
-    LOGD("Starting v4l2 thread");
-    ok = sc_thread_create(&vs->thread, run_v4l2_sink, "v4l2", vs);
-    if (!ok) {
-        LOGC("Could not start v4l2 thread");
-        goto error_av_packet_free;
-    }
-
+    vs->has_frame = false;
     vs->header_written = false;
     vs->stopped = false;
+
+    LOGD("Starting v4l2 thread");
+    ok = sc_thread_create(&vs->thread, run_v4l2_sink, "scrcpy-v4l2", vs);
+    if (!ok) {
+        LOGE("Could not start v4l2 thread");
+        goto error_av_packet_free;
+    }
 
     LOGI("v4l2 sink started to device: %s", vs->device_name);
 
@@ -271,8 +298,11 @@ error_cond_destroy:
     sc_cond_destroy(&vs->cond);
 error_mutex_destroy:
     sc_mutex_destroy(&vs->mutex);
+error_video_buffer_stop_and_join:
+    sc_video_buffer_stop(&vs->vb);
+    sc_video_buffer_join(&vs->vb);
 error_video_buffer_destroy:
-    video_buffer_destroy(&vs->vb);
+    sc_video_buffer_destroy(&vs->vb);
 
     return false;
 }
@@ -284,7 +314,10 @@ sc_v4l2_sink_close(struct sc_v4l2_sink *vs) {
     sc_cond_signal(&vs->cond);
     sc_mutex_unlock(&vs->mutex);
 
+    sc_video_buffer_stop(&vs->vb);
+
     sc_thread_join(&vs->thread, NULL);
+    sc_video_buffer_join(&vs->vb);
 
     av_packet_free(&vs->packet);
     av_frame_free(&vs->frame);
@@ -294,20 +327,12 @@ sc_v4l2_sink_close(struct sc_v4l2_sink *vs) {
     avformat_free_context(vs->format_ctx);
     sc_cond_destroy(&vs->cond);
     sc_mutex_destroy(&vs->mutex);
-    video_buffer_destroy(&vs->vb);
+    sc_video_buffer_destroy(&vs->vb);
 }
 
 static bool
 sc_v4l2_sink_push(struct sc_v4l2_sink *vs, const AVFrame *frame) {
-    bool ok = video_buffer_push(&vs->vb, frame, NULL);
-    if (!ok) {
-        return false;
-    }
-
-    // signal possible change of vs->vb.pending_frame_consumed
-    sc_cond_signal(&vs->cond);
-
-    return true;
+    return sc_video_buffer_push(&vs->vb, frame);
 }
 
 static bool
@@ -330,7 +355,7 @@ sc_v4l2_frame_sink_push(struct sc_frame_sink *sink, const AVFrame *frame) {
 
 bool
 sc_v4l2_sink_init(struct sc_v4l2_sink *vs, const char *device_name,
-                  struct size frame_size) {
+                  struct sc_size frame_size, sc_tick buffering_time) {
     vs->device_name = strdup(device_name);
     if (!vs->device_name) {
         LOGE("Could not strdup v4l2 device name");
@@ -338,6 +363,7 @@ sc_v4l2_sink_init(struct sc_v4l2_sink *vs, const char *device_name,
     }
 
     vs->frame_size = frame_size;
+    vs->buffering_time = buffering_time;
 
     static const struct sc_frame_sink_ops ops = {
         .open = sc_v4l2_frame_sink_open,

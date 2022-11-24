@@ -2,7 +2,6 @@ package com.genymobile.scrcpy;
 
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -129,6 +128,7 @@ public class ControlMessageReaderTest {
         dos.writeShort(1920);
         dos.writeInt(1);
         dos.writeInt(-1);
+        dos.writeInt(1);
 
         byte[] packet = bos.toByteArray();
 
@@ -145,6 +145,7 @@ public class ControlMessageReaderTest {
         Assert.assertEquals(1920, event.getPosition().getScreenSize().getHeight());
         Assert.assertEquals(1, event.getHScroll());
         Assert.assertEquals(-1, event.getVScroll());
+        Assert.assertEquals(1, event.getButtons());
     }
 
     @Test
@@ -220,6 +221,7 @@ public class ControlMessageReaderTest {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(bos);
         dos.writeByte(ControlMessage.TYPE_GET_CLIPBOARD);
+        dos.writeByte(ControlMessage.COPY_KEY_COPY);
 
         byte[] packet = bos.toByteArray();
 
@@ -227,6 +229,7 @@ public class ControlMessageReaderTest {
         ControlMessage event = reader.next();
 
         Assert.assertEquals(ControlMessage.TYPE_GET_CLIPBOARD, event.getType());
+        Assert.assertEquals(ControlMessage.COPY_KEY_COPY, event.getCopyKey());
     }
 
     @Test
@@ -236,6 +239,7 @@ public class ControlMessageReaderTest {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(bos);
         dos.writeByte(ControlMessage.TYPE_SET_CLIPBOARD);
+        dos.writeLong(0x0102030405060708L); // sequence
         dos.writeByte(1); // paste
         byte[] text = "testé".getBytes(StandardCharsets.UTF_8);
         dos.writeInt(text.length);
@@ -247,6 +251,7 @@ public class ControlMessageReaderTest {
         ControlMessage event = reader.next();
 
         Assert.assertEquals(ControlMessage.TYPE_SET_CLIPBOARD, event.getType());
+        Assert.assertEquals(0x0102030405060708L, event.getSequence());
         Assert.assertEquals("testé", event.getText());
         Assert.assertTrue(event.getPaste());
     }
@@ -260,6 +265,7 @@ public class ControlMessageReaderTest {
         dos.writeByte(ControlMessage.TYPE_SET_CLIPBOARD);
 
         byte[] rawText = new byte[ControlMessageReader.CLIPBOARD_TEXT_MAX_LENGTH];
+        dos.writeLong(0x0807060504030201L); // sequence
         dos.writeByte(1); // paste
         Arrays.fill(rawText, (byte) 'a');
         String text = new String(rawText, 0, rawText.length);
@@ -273,6 +279,7 @@ public class ControlMessageReaderTest {
         ControlMessage event = reader.next();
 
         Assert.assertEquals(ControlMessage.TYPE_SET_CLIPBOARD, event.getType());
+        Assert.assertEquals(0x0807060504030201L, event.getSequence());
         Assert.assertEquals(text, event.getText());
         Assert.assertTrue(event.getPaste());
     }

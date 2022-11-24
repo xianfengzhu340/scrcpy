@@ -1,5 +1,5 @@
-#ifndef RECORDER_H
-#define RECORDER_H
+#ifndef SC_RECORDER_H
+#define SC_RECORDER_H
 
 #include "common.h"
 
@@ -7,25 +7,25 @@
 #include <libavformat/avformat.h>
 
 #include "coords.h"
-#include "scrcpy.h"
+#include "options.h"
 #include "trait/packet_sink.h"
 #include "util/queue.h"
 #include "util/thread.h"
 
-struct record_packet {
+struct sc_record_packet {
     AVPacket *packet;
-    struct record_packet *next;
+    struct sc_record_packet *next;
 };
 
-struct recorder_queue QUEUE(struct record_packet);
+struct sc_recorder_queue SC_QUEUE(struct sc_record_packet);
 
-struct recorder {
+struct sc_recorder {
     struct sc_packet_sink packet_sink; // packet sink trait
 
     char *filename;
     enum sc_record_format format;
     AVFormatContext *ctx;
-    struct size declared_frame_size;
+    struct sc_size declared_frame_size;
     bool header_written;
 
     sc_thread thread;
@@ -33,20 +33,21 @@ struct recorder {
     sc_cond queue_cond;
     bool stopped; // set on recorder_close()
     bool failed; // set on packet write failure
-    struct recorder_queue queue;
+    struct sc_recorder_queue queue;
 
     // we can write a packet only once we received the next one so that we can
     // set its duration (next_pts - current_pts)
     // "previous" is only accessed from the recorder thread, so it does not
     // need to be protected by the mutex
-    struct record_packet *previous;
+    struct sc_record_packet *previous;
 };
 
 bool
-recorder_init(struct recorder *recorder, const char *filename,
-              enum sc_record_format format, struct size declared_frame_size);
+sc_recorder_init(struct sc_recorder *recorder, const char *filename,
+                 enum sc_record_format format,
+                 struct sc_size declared_frame_size);
 
 void
-recorder_destroy(struct recorder *recorder);
+sc_recorder_destroy(struct sc_recorder *recorder);
 
 #endif
